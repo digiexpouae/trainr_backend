@@ -3,3 +3,5 @@ node_modules/
 *.log
 .DS_Store
 firebase-service-account.json
+*firebase-adminsdk*.json
+trainr-app-44f5c-firebase-adminsdk-fbsvc-b5847d3722.json
