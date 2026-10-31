@@ -1,16 +1,33 @@
-# Edge cases: POST /api/resident/locations
+# Edge cases: resident locations
 
-- **Similar building names** (Kamdar, Kamdar Dev): open. Admin merges, or Google suggestions.
-- **Same building + same address (same resident):** resolved. Returns 200 with the existing location; a new label updates it.
+## Create (`POST /locations`)
 
-- **Type `other` + same address:** resolved. Same rule, no building. A repeat keeps the first saved type.
+| Case | Status | Behaviour |
+|---|---|---|
+| Same address + same building, same resident | Done | Returns 200 with the saved one (`alreadySaved`). A new label updates it. |
+| Same address, no building (`home`, `work`, `other`) | Done | Same rule. A repeat keeps the first saved type. |
+| Same address as `home` and as `building` | Accepted | Two rows, since the building differs. A session copies the address, so no harm. |
+| Double tap (two requests at once) | Done | A lock per resident makes the second wait, then it returns the saved one. |
+| New building with a name that already exists | Done | 409. Says it exists, or is waiting for approval. |
+| Similar building names (Kamdar, Kamdar Dev) | Open | Admin merges, or Google suggestions. |
+| Two users add the same new building at once | Open | Two `pending` copies are made. Fix: lock or unique name. Fallback: admin merge. |
 
-- **Same address as `home` and as `building`:** two rows (the building differs). Accepted: a session copies the address, so it does no harm.
 
-- **Double taps by same user holds second 
-request to avoid duplicate insertions.
-- **Two users add the same new building at once:** open. Both pass the name check, so two `pending` copies are made. Fix: lock or unique name. Fallback: admin merge.
+## To do
+- Google suggestion on the building field, so users pick a correct name.
+- Split `createLocation` into small helper functions.
+- Change the update route to `PATCH /locations/:id`.
 
-- **Google suggestion on the building field:** planned. Users pick a correct name instead of typing, so fewer duplicates.
 
-- **Clean up `createLocation`:** to do. Split it into small helper functions (find saved location, resolve building, insert location) so the endpoint reads in a few lines.
+## Update (`PUT /location/:id`)
+
+| Case | Status | Behaviour |
+|---|---|---|
+| Location missing or not the resident's | Done | 404. |
+| New address matches another saved one (same building) | Done | 409. |
+| Nothing to update, or only one of latitude/longitude | Done | 400. |
+| Success | Done | Returns the updated location with building details. |
+| Type and building change | Not allowed | Save a new address instead. |
+| Update sends a different `type` or `buildingId`, or any `newBuilding` | Done | 400, nothing is saved. |
+| Update sends the same `type` / `buildingId` as saved | Done | Accepted and ignored, so a full object can be sent back. |
+

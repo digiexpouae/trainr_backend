@@ -20,4 +20,8 @@ router.put('/location/:id',requireAuth,updateLocation)
 // Trainer routes: add once trainer signup is ready (/trainer/register, /trainer/login)
 
 
+
+
+
+
 module.exports = router;

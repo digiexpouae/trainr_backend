@@ -1,4 +1,4 @@
-const { z } = require('zod');
+const { locationSchema,updateLocationSchema,locationIdSchema } = require('../validators/location');
 const { pool, withTransaction } = require('../config/db');
 const validate = require('../utils/validate');
 const AppError = require('../utils/AppError');
@@ -7,41 +7,6 @@ const auth = require('../services/auth');
 // Names the advisory lock used while saving a resident's location.
 const LOCATION_LOCK = 1001;
 
-const managementSchema = z.object({
-  companyName: z.string().trim().max(100).optional(),
-  contactName: z.string().trim().min(1).max(100),
-  contactPhone: z.string().trim().max(20).optional(),
-  contactEmail: z.string().trim().email().max(100).optional(),
-});
-
-// "Other" in the building list: the resident types a building we don't have yet.
-const newBuildingSchema = z.object({
-  name: z.string().trim().min(1).max(50),
-  management: managementSchema.optional(),
-});
-
-// An apartment address (type 'building') uses either an existing approved building
-// (buildingId) or a new one (newBuilding). Any other type has no building.
-const locationSchema = z
-  .object({
-    type: z.enum(['home', 'work', 'building', 'other']).default('other'),
-    label: z.string().trim().max(50).optional(),
-    address: z.string().trim().min(1).max(200),
-    latitude: z.coerce.number().min(-90).max(90),
-    longitude: z.coerce.number().min(-180).max(180),
-    buildingId: z.coerce.number().int().positive().optional(),
-    newBuilding: newBuildingSchema.optional(),
-  })
-  .refine(
-    (l) =>
-      l.type === 'building'
-        ? (l.buildingId == null) !== (l.newBuilding == null)
-        : l.buildingId == null && l.newBuilding == null,
-    {
-      message: "Apartments need either buildingId or newBuilding; other types need neither",
-      path: ['buildingId'],
-    }
-  );
 
 async function requireResident(req) {
   const user = await auth.findByFirebaseUid(req.user.uid);
@@ -194,9 +159,74 @@ async function createLocation(req, res) {
   });
 }
 
-// Only the details of the place can change. Type and building stay as saved;
-// to move to another building the resident saves a new address.
+
+async function findLocation(db, id, residentId) {
+  const { rows: [location] } = await db.query(
+    `SELECT rl.*, b.name AS building_name, b.status AS building_status
+       FROM resident_locations rl
+       LEFT JOIN building b ON b.id = rl.building_id
+      WHERE rl.id = $1 AND rl.resident_id = $2`,
+    [id, residentId]
+  );
+  return location;
+}
+
+// Does the resident already have another saved place with this address and building?
+async function addressTaken(db, residentId, buildingId, address, exceptId) {
+  const { rowCount } = await db.query(
+    `SELECT 1 FROM resident_locations
+      WHERE resident_id = $1 AND id <> $2
+        AND lower(btrim(address)) = lower($3)
+        AND building_id IS NOT DISTINCT FROM $4`,
+    [residentId, exceptId, address, buildingId]
+  );
+  return rowCount > 0;
+}
+
+// PATCH /resident/locations/:id: changes the label, address or coordinates of a saved address.
+// Existing sessions keep their own copy of the address, so they are not affected.
+async function updateLocation(req, res) {
+  const { id } = validate(locationIdSchema, req.params);
+  const input = validate(updateLocationSchema, req.body);
+  const user = await requireResident(req);
+
+  const row = await withTransaction(async (db) => {
+    await db.query('SELECT pg_advisory_xact_lock($1, $2)', [LOCATION_LOCK, user.id]);
+
+    const current = await findLocation(db, id, user.id);
+    if (!current) throw new AppError(404, 'Location not found');
+
+    // type and building may be sent back unchanged, but not edited.
+    if (input.type !== undefined && input.type !== current.type) {
+      throw new AppError(400, 'type cannot be changed');
+    }
+    if (input.buildingId !== undefined && (input.buildingId ?? null) !== current.building_id) {
+      throw new AppError(400, 'building cannot be changed');
+    }
+
+    // Only check for a duplicate when the address text actually changes.
+    const addressChanged =
+      input.address !== undefined &&
+      input.address.trim().toLowerCase() !== (current.address ?? '').trim().toLowerCase();
+    if (addressChanged && await addressTaken(db, user.id, current.building_id, input.address, id)) {
+      throw new AppError(409, 'You already have this address saved.');
+    }
+
+    await db.query(
+      `UPDATE resident_locations
+          SET label = COALESCE($1, label),
+              address = COALESCE($2, address),
+              latitude = COALESCE($3, latitude),
+              longitude = COALESCE($4, longitude)
+        WHERE id = $5`,
+      [input.label ?? null, input.address ?? null, input.latitude ?? null,
+       input.longitude ?? null, id]
+    );
+    return findLocation(db, id, user.id);
+  });
+
+  res.json({ location: toLocation(row) });
+}
 
 
-
-module.exports = { listLocations, listBuildings, createLocation };
+module.exports = { listLocations, listBuildings, createLocation,updateLocation };
