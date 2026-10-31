@@ -1,7 +1,7 @@
 const { z } = require('zod');
 const { pool, withTransaction } = require('../config/db');
 const validate = require('../utils/validate');
-
+const { requireResident } = require('../services/auth');
 
 
 const searchSchema = z.object({
@@ -67,6 +67,7 @@ async function getCoverageAreaSlots(req, res) {
 async function searchTrainer(req, res) {
   const { latitude, longitude } = validate(searchSchema, req.query);
 
+  const user = await requireResident(req);
   const { rows } = await pool.query(
 
 
@@ -93,6 +94,7 @@ async function searchTrainer(req, res) {
     [latitude, longitude]
   );
 
+  console.log("rows",rows)
   // A trainer may have several matching areas; keep the nearest one per trainer.
   const seen = new Set();
   const trainers = [];

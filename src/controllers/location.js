@@ -2,18 +2,10 @@ const { locationSchema,updateLocationSchema,locationIdSchema } = require('../val
 const { pool, withTransaction } = require('../config/db');
 const validate = require('../utils/validate');
 const AppError = require('../utils/AppError');
-const auth = require('../services/auth');
+const { requireResident } = require('../services/auth');
 
 // Names the advisory lock used while saving a resident's location.
 const LOCATION_LOCK = 1001;
-
-
-async function requireResident(req) {
-  const user = await auth.findByFirebaseUid(req.user.uid);
-  if (!user || user.role !== 'resident') throw new AppError(403, 'Only residents can manage locations');
-  if (!user.is_active) throw new AppError(403, 'Account is deactivated');
-  return user;
-}
 
 const toLocation = (r) => ({
   id: r.id,

@@ -37,6 +37,14 @@ async function findByFirebaseUid(uid) {
   return rows[0] || null;
 }
 
+// For routes behind requireAuth: returns the active resident making the request, or throws 403.
+async function requireResident(req) {
+  const user = await findByFirebaseUid(req.user.uid);
+  if (!user || user.role !== 'resident') throw new AppError(403, 'Only residents can access this');
+  if (!user.is_active) throw new AppError(403, 'Account is deactivated');
+  return user;
+}
+
 // Creates the users row and its resident_profiles row atomically.
 async function registerResident(decoded, { firstName, lastName, email }) {
   try {
@@ -73,4 +81,4 @@ async function loginResident(decoded) {
   return toPublicUser(row);
 }
 
-module.exports = { verifyPhoneToken, findByFirebaseUid, registerResident, loginResident, toPublicUser };
+module.exports = { verifyPhoneToken, findByFirebaseUid, requireResident, registerResident, loginResident, toPublicUser };

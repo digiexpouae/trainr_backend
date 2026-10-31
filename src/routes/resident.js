@@ -6,8 +6,8 @@ const {createBooking}= require("../controllers/booking")
 
 const router = express.Router();
 
-router.get('/trainers/search', searchTrainer);
-router.get('/coverage-areas/:coverageAreaId/slots', getCoverageAreaSlots);
+router.get('/trainers/search',requireAuth, searchTrainer);
+router.get('/coverage-areas/:coverageAreaId/slots',requireAuth, getCoverageAreaSlots);
 
 // Resident addresses: list saved ones, list approved buildings, save a new address.
 router.get('/locations', requireAuth, listLocations);
