@@ -1,0 +1,27 @@
+Session,slot
+auth
+
+
+POST /api/resident/bookings   (createBooking)
+Purpose: resident books one slot for one specific date; session starts as
+         pending_payment and holds the slot for HOLD_MINUTES
+Input (body): slotId, sessionDate (YYYY-MM-DD), goals, flatNo?, howToReach?,
+         and either locationId (saved) or location {type, label?, address,
+         latitude, longitude, buildingId?}
+Rules:
+  - caller must be an active resident
+  - slot must be active, with an approved + active trainer
+  - sessionDate must fall on the slot's weekday (0 = Sunday) and not be in the past
+  - saved location must belong to this resident and have address + coordinates
+  - trainer must serve the location (assertTrainerServes)
+  - a new location is saved only after the coverage check passes
+  - slot is taken if the same slot + date has a session in requested / accepted /
+    confirmed / in_progress, or pending_payment that hasn't expired
+Concurrency: whole thing runs in one transaction; FOR UPDATE on the slot row
+         makes simultaneous bookings go one at a time
+Returns (201): { session: {id, status, sessionDate, startTime, endTime, price, expiresAt} }
+Errors: 400 wrong weekday / past date / location not covered / location incomplete,
+        403 not a resident or deactivated, 404 slot or saved location not found,
+        409 slot no longer available
+Notes: price, start and end time are copied from the slot into the session,
+       so later slot edits don't change existing bookings
