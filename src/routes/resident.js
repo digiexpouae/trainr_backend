@@ -1,6 +1,6 @@
 const express = require('express');
 const { searchTrainer, getCoverageAreaSlots } = require('../controllers/resident');
-const { listLocations, listBuildings, createLocation,updateLocation } = require('../controllers/location');
+const { listLocations, listBuildings, createLocation,updateLocation, deleteLocation } = require('../controllers/location');
 const { requireAuth } = require('../middleware/auth');
 const {createBooking}= require("../controllers/booking")
 
@@ -15,7 +15,7 @@ router.get('/buildings', requireAuth, listBuildings);
 router.post('/bookings',requireAuth, createBooking)
 router.post('/locations', requireAuth, createLocation);
 router.put('/location/:id',requireAuth,updateLocation)
-// router.delete('/locations/:id',requireAuth,deleteLocation)
+router.delete('/locations/:id',requireAuth,deleteLocation)
 
 // Trainer routes: add once trainer signup is ready (/trainer/register, /trainer/login)
 

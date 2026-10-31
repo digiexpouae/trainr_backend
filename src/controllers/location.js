@@ -228,5 +228,29 @@ async function updateLocation(req, res) {
   res.json({ location: toLocation(row) });
 }
 
+// DELETE /resident/locations/:id: removes one of the resident's saved addresses.
+// An address a session was booked with is kept (the session still points to it).
+async function deleteLocation(req, res) {
+  const { id } = validate(locationIdSchema, req.params);
+  const user = await requireResident(req);
 
-module.exports = { listLocations, listBuildings, createLocation,updateLocation };
+  try {
+    const { rowCount } = await pool.query(
+      'DELETE FROM resident_locations WHERE id = $1 AND resident_id = $2',
+      [id, user.id]
+    );
+    if (rowCount === 0) throw new AppError(404, 'Location not found');
+  } catch (err) {
+    if (err.code === '23503') {
+      throw new AppError(409, 'This address was used for a booking and cannot be deleted.');
+    }
+    console.log("error",err)
+    throw err;
+  }
+
+res.status(200).json({
+  message: "Location Deleted successfully",
+});
+}
+
+module.exports = { listLocations, listBuildings, createLocation, updateLocation, deleteLocation };

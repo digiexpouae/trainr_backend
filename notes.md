@@ -31,3 +31,15 @@
 | Update sends a different `type` or `buildingId`, or any `newBuilding` | Done | 400, nothing is saved. |
 | Update sends the same `type` / `buildingId` as saved | Done | Accepted and ignored, so a full object can be sent back. |
 
+## Delete (`DELETE /locations/:id`)
+
+| Case | Status | Behaviour |
+|---|---|---|
+| Location missing or not the resident's | Done | 404. |
+| Address was used for a booking | Done | 409. Kept, because the session still points to it. |
+| Invalid `:id` (not a positive number) | Done | 400. |
+| Not a resident, or account deactivated | Done | 403. |
+| Success | Done | 200 with a message. |
+| Delete the same address twice | Done | The second call returns 404. |
+| Building of the deleted address | Untouched | Other residents may share it. |
+| Resident wants to delete an address used for a booking | Open | Blocked today (409). Soft delete (`deleted_at`) is not integrated yet: it would hide the address from the resident and keep the row for the booking. |
