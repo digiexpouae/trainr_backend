@@ -34,4 +34,12 @@ async function me(req, res) {
   res.json({ user: auth.toPublicUser(row) });
 }
 
-module.exports = { registerUser, loginUser, me };
+async function logout(req, res) {
+  // Dev tokens (see middleware/auth.js) have no Firebase user to revoke.
+  const isDevToken =
+    process.env.NODE_ENV === 'development' && getBearerToken(req).startsWith('dev-');
+  if (!isDevToken) await auth.logout(req.user.uid);
+  res.json({ message: 'Logged out' });
+}
+
+module.exports = { registerUser, loginUser, me, logout };

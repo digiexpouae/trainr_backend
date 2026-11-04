@@ -13,7 +13,8 @@ if (process.env.NODE_ENV === 'development' && token.startsWith('dev-')) {
   }
 
   try {
-    req.user = await admin.auth().verifyIdToken(token);
+    // checkRevoked=true rejects tokens issued before revokeRefreshTokens (logout)
+    req.user = await admin.auth().verifyIdToken(token, true);
     next();
   } catch (err) {
     res.status(401).json({ error: 'Invalid or expired token' });

@@ -82,4 +82,9 @@ async function loginResident(decoded) {
   return toPublicUser(row);
 }
 
-module.exports = { verifyPhoneToken, findByFirebaseUid, requireResident, registerResident, loginResident, toPublicUser };
+// Revokes the user's Firebase refresh tokens so no new ID tokens can be minted.
+async function logout(uid) {
+  await admin.auth().revokeRefreshTokens(uid);
+}
+
+module.exports = { verifyPhoneToken, findByFirebaseUid, requireResident, registerResident, loginResident, toPublicUser, logout };
