@@ -59,9 +59,6 @@ async function getCoverageAreaSlots(req, res) {
   });
 }
 
-
-
-
 // Returns the trainers whose coverage area (center + radius_km) contains the given point.
 // Distance is the haversine great-circle distance in km (earth radius 6371).
 async function searchTrainer(req, res) {
@@ -94,7 +91,7 @@ async function searchTrainer(req, res) {
     [latitude, longitude]
   );
 
-  console.log("rows",rows)
+
   // A trainer may have several matching areas; keep the nearest one per trainer.
   const seen = new Set();
   const trainers = [];

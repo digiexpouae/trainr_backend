@@ -27,7 +27,7 @@ function haversineKm(lat1, lon1, lat2, lon2) {
     Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(((lon2 - lon1) * rad) / 2) ** 2;
   return 6371 * 2 * Math.asin(Math.sqrt(a));
 }
-
+-                   
 async function assertTrainerServes(db, slot, { latitude, longitude, buildingId }) {
   if (slot.scope === 'coverage_area') {
     const radius = Number(slot.radius_km);

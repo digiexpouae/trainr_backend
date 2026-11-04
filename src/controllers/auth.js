@@ -1,21 +1,29 @@
 const validate = require('../utils/validate');
 const AppError = require('../utils/AppError');
-const { registerUserSchema, loginSchema } = require('../validators/auth');
+const { registerUserSchema } = require('../validators/auth');
 const auth = require('../services/auth');
 
 // Phone OTP runs on the client (Firebase SDK). The client sends the resulting
-// Firebase ID token here. Express 5 forwards rejected promises to the error handler.
+// Firebase ID token in the Authorization header (Bearer). Express 5 forwards
+// rejected promises to the error handler.
+
+function getBearerToken(req) {
+  const [scheme, token] = (req.headers.authorization || '').split(' ');
+  if (scheme !== 'Bearer' || !token) {
+    throw new AppError(401, 'Missing or malformed Authorization header');
+  }
+  return token;
+}
 
 async function registerUser(req, res) {
-  const { idToken, ...profile } = validate(registerUserSchema, req.body);
-  const decoded = await auth.verifyPhoneToken(idToken);
+  const profile = validate(registerUserSchema, req.body);
+  const decoded = await auth.verifyPhoneToken(getBearerToken(req));
   const user = await auth.registerResident(decoded, profile);
   res.status(201).json({ user });
 }
 
 async function loginUser(req, res) {
-  const { idToken } = validate(loginSchema, req.body);
-  const decoded = await auth.verifyPhoneToken(idToken);
+  const decoded = await auth.verifyPhoneToken(getBearerToken(req));
   const user = await auth.loginResident(decoded);
   res.json({ user });
 }

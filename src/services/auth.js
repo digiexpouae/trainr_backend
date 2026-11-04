@@ -71,6 +71,7 @@ async function registerResident(decoded, { firstName, lastName, email }) {
 
 // Returns the registered resident for a verified token, or throws 404/403.
 async function loginResident(decoded) {
+
   const row = await findByFirebaseUid(decoded.uid);
  if (!row || row.role !== 'resident') {
     if (row) logger.warn(`Role mismatch: uid=${decoded.uid} has role=${row.role}, tried resident login`);

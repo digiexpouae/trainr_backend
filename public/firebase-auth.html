@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trainr Firebase Auth</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; color: #222; }
+    h1 { font-size: 1.4rem; }
+    fieldset { margin: 16px 0; border: 1px solid #ccc; border-radius: 8px; }
+    label { display: block; margin: 8px 0 4px; font-size: .9rem; }
+    input[type=text], input[type=tel], input[type=email] { width: 100%; padding: 8px; box-sizing: border-box; }
+    button { margin-top: 10px; padding: 8px 14px; cursor: pointer; }
+    textarea { width: 100%; height: 110px; font-family: monospace; font-size: .75rem; box-sizing: border-box; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; font-size: .8rem; }
+    .hidden { display: none; }
+    #status { color: #b00020; min-height: 1.2em; }
+  </style>
+</head>
+<body>
+  <h1>Trainr – Phone OTP Sign-in</h1>
+  <p id="status"></p>
+
+  <label>API base URL</label>
+  <input type="text" id="apiBase" value="http://localhost:3000" />
+
+  <fieldset id="step1">
+    <legend>1. Phone number</legend>
+    <label for="phone">Phone (E.164, e.g. +923001234567)</label>
+    <input type="tel" id="phone" placeholder="+923001234567" />
+    <div id="recaptcha-container" style="margin-top:10px"></div>
+    <button id="sendOtp">Send OTP</button>
+  </fieldset>
+
+  <fieldset id="step2" class="hidden">
+    <legend>2. Verify OTP</legend>
+    <label for="otp">6-digit code</label>
+    <input type="text" id="otp" inputmode="numeric" maxlength="6" />
+    <button id="verifyOtp">Verify</button>
+  </fieldset>
+
+  <fieldset id="step3" class="hidden">
+    <legend>3. Signed in</legend>
+    <label>Firebase ID token</label>
+    <textarea id="token" readonly></textarea>
+    <button id="copy">Copy token</button>
+    <button id="login">Call /login</button>
+    <button id="me">Call /me</button>
+    <button id="signOut">Sign out</button>
+
+    <h4>Register (new user)</h4>
+    <label>First name</label><input type="text" id="firstName" />
+    <label>Last name</label><input type="text" id="lastName" />
+    <label>Email (optional)</label><input type="email" id="email" />
+    <label><input type="checkbox" id="terms" /> I accept the terms</label>
+    <button id="register">Call /register</button>
+  </fieldset>
+
+  <pre id="output"></pre>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+    import {
+      getAuth, RecaptchaVerifier, signInWithPhoneNumber, signOut
+    } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+    // TODO: paste your web app config from Firebase Console > Project settings > Your apps
+   const firebaseConfig = {
+  apiKey: "AIzaSyCBEHfKLZS856qpMe344RdnuP4lc0Cnp8U",
+  authDomain: "trainr-app-44f5c.firebaseapp.com",
+  projectId: "trainr-app-44f5c",
+  storageBucket: "trainr-app-44f5c.firebasestorage.app",
+  messagingSenderId: "797843404035",
+  appId: "1:797843404035:web:68002e4f102e629ff5e536"
+};
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const $ = (id) => document.getElementById(id);
+    const show = (id, on) => $(id).classList.toggle("hidden", !on);
+    const out = (v) => ($("output").textContent = typeof v === "string" ? v : JSON.stringify(v, null, 2));
+    const fail = (e) => { $("status").textContent = e.message || String(e); };
+
+    let confirmation = null;
+    let recaptcha = null;
+    function resetRecaptcha() {
+      try { recaptcha?.clear(); } catch {}
+      $("recaptcha-container").innerHTML = "";
+      recaptcha = new RecaptchaVerifier(auth, "recaptcha-container", { size: "normal" });
+    }
+    resetRecaptcha();
+
+    $("sendOtp").onclick = async () => {
+      $("status").textContent = "";
+      try {
+        confirmation = await signInWithPhoneNumber(auth, $("phone").value.trim(), recaptcha);
+        show("step2", true);
+      } catch (e) { console.error(e); fail(e); resetRecaptcha(); }
+    };
+
+    $("verifyOtp").onclick = async () => {
+      $("status").textContent = "";
+      try {
+        const { user } = await confirmation.confirm($("otp").value.trim());
+        $("token").value = await user.getIdToken();
+        console.log("Firebase ID token:", $("token").value);
+        show("step3", true);
+        out({ uid: user.uid, phoneNumber: user.phoneNumber });
+      } catch (e) { fail(e); }
+    };
+
+    async function api(path, method, body, bearer) {
+      const headers = { "Content-Type": "application/json" };
+      if (bearer) headers.Authorization = `Bearer ${$("token").value}`;
+      const res = await fetch(`${$("apiBase").value}/api/auth${path}`, {
+        method, headers, body: body ? JSON.stringify(body) : undefined,
+      });
+      out({ status: res.status, body: await res.json().catch(() => null) });
+    }
+
+    $("login").onclick = () => api("/user/login", "POST", null, true).catch(fail);
+    $("me").onclick = () => api("/me", "GET", null, true).catch(fail);
+    $("register").onclick = () => api("/user/register", "POST", {
+      firstName: $("firstName").value,
+      lastName: $("lastName").value,
+      email: $("email").value || undefined,
+      acceptedTerms: $("terms").checked,
+    }, true).catch(fail);
+
+    $("copy").onclick = () => navigator.clipboard.writeText($("token").value);
+    $("signOut").onclick = async () => {
+      await signOut(auth);
+      $("token").value = "";
+      show("step3", false);
+      show("step2", false);
+      out("");
+    };
+  </script>
+</body>
+</html>
