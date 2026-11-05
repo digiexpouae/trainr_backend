@@ -3,6 +3,7 @@ const { searchTrainer, getCoverageAreaSlots } = require('../controllers/resident
 const { listLocations, listBuildings, createLocation,updateLocation, deleteLocation } = require('../controllers/location');
 const { requireAuth } = require('../middleware/auth');
 const {createBooking}= require("../controllers/booking")
+const { payForSession } = require('../controllers/payment');
 
 const router = express.Router();
 
@@ -13,6 +14,7 @@ router.get('/coverage-areas/:coverageAreaId/slots',requireAuth, getCoverageAreaS
 router.get('/locations', requireAuth, listLocations);
 router.get('/buildings', requireAuth, listBuildings);
 router.post('/bookings',requireAuth, createBooking)
+router.post('/sessions/:id/pay', requireAuth, payForSession);
 router.post('/locations', requireAuth, createLocation);
 router.put('/location/:id',requireAuth,updateLocation)
 router.delete('/locations/:id',requireAuth,deleteLocation)

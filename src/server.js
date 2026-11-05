@@ -10,6 +10,14 @@ const PORT = process.env.PORT || 3000;
 
 app.use(helmet());
 app.use(cors());
+
+// Stripe signs the exact raw bytes, so this must come before express.json() and the rate limit.
+app.post(
+  '/api/payments/webhook',
+  express.raw({ type: 'application/json' }),
+  require('./controllers/payment').stripeWebhook
+);
+
 app.use(express.json());
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 100 }));
 

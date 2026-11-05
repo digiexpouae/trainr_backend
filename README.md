@@ -56,7 +56,18 @@ Base URL: `http://localhost:3000`. Protected routes need `Authorization: Bearer 
 | PUT | `/api/resident/location/:id` | Bearer | Update a location |
 | DELETE | `/api/resident/locations/:id` | Bearer | Delete a location |
 | GET | `/api/resident/buildings` | Bearer | List buildings |
-| POST | `/api/resident/bookings` | Bearer | Book a slot |
+| POST | `/api/resident/bookings` | Bearer | Book a slot (held for 10 minutes) |
+| POST | `/api/resident/sessions/:id/pay` | Bearer | Start payment, returns Stripe `clientSecret` |
+| POST | `/api/payments/webhook` | Stripe signature | Stripe events (not for apps) |
+
+## Payments (Stripe)
+1. Resident books a slot. The session is `pending_payment`.
+2. App calls `POST /api/resident/sessions/:id/pay` and pays with the returned `clientSecret` using Stripe's SDK.
+3. Stripe calls `/api/payments/webhook`. Only a signed event moves the session to `requested`.
+
+Add to `.env`: `STRIPE_SECRET_KEY=sk_test_...` and `STRIPE_WEBHOOK_SECRET=whsec_...`. Run `npm run migrate` for migration 003.
+
+Test locally: `stripe listen --forward-to localhost:3000/api/payments/webhook`, then pay with test card `4242 4242 4242 4242`. A declined card is `4000 0000 0000 0002`.
 
 ## Getting a token for testing
 1. In Firebase Console → Authentication → Sign-in method → Phone, add a test phone number and code. Under Settings → SMS region policy, allow the country.

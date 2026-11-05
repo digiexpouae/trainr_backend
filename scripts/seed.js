@@ -109,6 +109,31 @@ function nextDateFor(dayOfWeek) {
       { trainer_id: trainerId, scope: 'building', trainer_building_id: pendingTbId, day_of_week: 5, start_time: '07:00' },
       { end_time: '08:00', price: 120 });
 
+    // --- extra trainers in other areas, to test choosing a different slot ---
+    const trainer2Id = await upsertUser(client, {
+      uid: 'trainer2', first: 'Sara', last: 'Trainer', phone: '+971500000004', email: 'trainer2@test.local', role: 'trainer',
+    });
+    const trainer3Id = await upsertUser(client, {
+      uid: 'trainer3', first: 'Omar', last: 'Trainer', phone: '+971500000005', email: 'trainer3@test.local', role: 'trainer',
+    });
+    for (const id of [trainer2Id, trainer3Id]) {
+      await client.query(
+        `INSERT INTO trainer_profiles (user_id, bio, status)
+         VALUES ($1, 'Seeded test trainer', 'approved')
+         ON CONFLICT (user_id) DO UPDATE SET status = 'approved'`, [id]
+      );
+    }
+    const area2Id = await findOrCreate(client, 'trainer_coverage_areas',
+      { trainer_id: trainer2Id, area_name: 'JLT' }, { latitude: 25.0657, longitude: 55.1413, radius_km: 5 });
+    const area3Id = await findOrCreate(client, 'trainer_coverage_areas',
+      { trainer_id: trainer3Id, area_name: 'Downtown Dubai' }, { latitude: 25.1972, longitude: 55.2744, radius_km: 5 });
+    const jltSlot = await findOrCreate(client, 'trainer_slots',
+      { trainer_id: trainer2Id, scope: 'coverage_area', coverage_area_id: area2Id, day_of_week: 2, start_time: '18:00' },
+      { end_time: '19:00', price: 180 });
+    const downtownSlot = await findOrCreate(client, 'trainer_slots',
+      { trainer_id: trainer3Id, scope: 'coverage_area', coverage_area_id: area3Id, day_of_week: 4, start_time: '19:00' },
+      { end_time: '20:00', price: 200 });
+
     // --- resident's saved locations ---
     const insideId = await findOrCreate(client, 'resident_locations',
       { resident_id: residentId, label: 'Home (inside coverage)' },
@@ -122,6 +147,12 @@ function nextDateFor(dayOfWeek) {
     const pendingBuildingLocId = await findOrCreate(client, 'resident_locations',
       { resident_id: residentId, label: 'Pending Heights flat' },
       { type: 'building', address: 'Pending Heights, JLT', latitude: 25.0657, longitude: 55.1413, building_id: pendingBuildingId });
+    const jltLocId = await findOrCreate(client, 'resident_locations',
+      { resident_id: residentId, label: 'Home (inside JLT coverage)' },
+      { type: 'home', address: 'Cluster D, JLT', latitude: 25.066, longitude: 55.1415 });
+    const downtownLocId = await findOrCreate(client, 'resident_locations',
+      { resident_id: residentId, label: 'Home (inside Downtown coverage)' },
+      { type: 'home', address: 'Burj Khalifa Blvd, Downtown Dubai', latitude: 25.1975, longitude: 55.275 });
 
     await client.query('COMMIT');
 
@@ -130,11 +161,15 @@ Seed done. Use these with "Authorization: Bearer <token>":
   resident token : dev-resident1   (user id ${residentId})
   trainer token  : dev-trainer1    (user id ${trainerId})
   admin token    : dev-admin1      (user id ${adminId})
+  trainer2 token : dev-trainer2    (user id ${trainer2Id})
+  trainer3 token : dev-trainer3    (user id ${trainer3Id})
 
 Slots (sessionDate must fall on the slot's weekday):
   coverage slot ${coverageSlot}  Mon 18:00-19:00  -> try sessionDate ${nextDateFor(1)}
   building slot ${buildingSlot}  Wed 07:00-08:00  -> try sessionDate ${nextDateFor(3)}  (approved building)
   building slot ${pendingBuildingSlot}  Fri 07:00-08:00  -> try sessionDate ${nextDateFor(5)}  (building NOT approved)
+  coverage slot ${jltSlot}  Tue 18:00-19:00 (JLT, trainer2)  -> try sessionDate ${nextDateFor(2)}  use locationId ${jltLocId}
+  coverage slot ${downtownSlot}  Thu 19:00-20:00 (Downtown, trainer3)  -> try sessionDate ${nextDateFor(4)}  use locationId ${downtownLocId}
 
 Resident saved locations (locationId):
   ${insideId} inside coverage       ${outsideId} outside coverage
