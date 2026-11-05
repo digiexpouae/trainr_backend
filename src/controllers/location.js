@@ -209,7 +209,8 @@ async function updateLocation(req, res) {
           SET label = COALESCE($1, label),
               address = COALESCE($2, address),
               latitude = COALESCE($3, latitude),
-              longitude = COALESCE($4, longitude)
+              longitude = COALESCE($4, longitude),
+              updated_at = now()
         WHERE id = $5`,
       [input.label ?? null, input.address ?? null, input.latitude ?? null,
        input.longitude ?? null, id]
@@ -221,7 +222,7 @@ async function updateLocation(req, res) {
 }
 
 // DELETE /resident/locations/:id: removes one of the resident's saved addresses.
-// An address a session was booked with is kept (the session still points to it).
+// Sessions keep their own copy of the address; their location_id is set to NULL on delete.
 async function deleteLocation(req, res) {
   const { id } = validate(locationIdSchema, req.params);
   const user = await requireResident(req);
