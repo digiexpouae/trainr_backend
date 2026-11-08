@@ -6,6 +6,7 @@ const validate = require('../utils/validate');
 
 const AppError = require('../utils/AppError');
 const auth = require('../services/auth');
+const { BLOCKS_SLOT_SQL } = require('../services/slotHold');
 
 // The address is saved first (POST /resident/locations); a booking only references it.
 const bookingSchema = z.object({
@@ -125,8 +126,7 @@ async function createBooking(req, res) {
     const taken = await db.query(
       `SELECT 1 FROM sessions
         WHERE slot_id = $1 AND session_date = $2
-          AND (status IN ('requested','accepted','confirmed','in_progress')
-               OR (status = 'pending_payment' AND expires_at > now()))
+          AND ${BLOCKS_SLOT_SQL}
         LIMIT 1`,
       [slot.id, input.sessionDate]
     );

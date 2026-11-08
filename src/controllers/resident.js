@@ -117,6 +117,7 @@ async function searchTrainer(req, res) {
 
 // Creates a 'pending_payment' session that holds the slot for HOLD_MINUTES.
 // A session blocks its slot while it is booked (requested..in_progress) or while
-// a pending_payment hold has not expired; cancelled/declined/expired ones do not.
+// a pending_payment hold is running or its charge is still open (see services/slotHold.js);
+// cancelled/declined/expired ones do not.
 
 module.exports = { searchTrainer, getCoverageAreaSlots };
