@@ -1,6 +1,7 @@
 const { z } = require('zod');
 const validate = require('../utils/validate');
 const AppError = require('../utils/AppError');
+const { sendSuccess } = require('../utils/response');
 const auth = require('../services/auth');
 const payment = require('../services/payment');
 const { getStripe, getWebhookSecret } = require('../config/stripe');
@@ -12,7 +13,7 @@ async function payForSession(req, res) {
   const { id } = validate(paramsSchema, req.params);
   const user = await auth.requireResident(req);
   const result = await payment.createPaymentForSession(user, id);
-  res.json(result);
+  sendSuccess(res, { message: 'Payment created successfully', data: result });
 }
 
 // POST /payments/webhook. Needs the raw body (see server.js). No login: Stripe's

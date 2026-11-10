@@ -2,6 +2,7 @@ const { locationSchema,updateLocationSchema,locationIdSchema } = require('../val
 const { pool, withTransaction } = require('../config/db');
 const validate = require('../utils/validate');
 const AppError = require('../utils/AppError');
+const { sendSuccess, sendCreated, sendList } = require('../utils/response');
 const { requireResident } = require('../services/auth');
 
 // Names the advisory lock used while saving a resident's location.
@@ -30,7 +31,7 @@ async function listLocations(req, res) {
       ORDER BY rl.is_default DESC, rl.created_at DESC`,
     [user.id]
   );
-  res.json({ locations: rows.map(toLocation) });
+  sendList(res, { message: 'Locations fetched successfully', data: rows.map(toLocation) });
 }
 
 // GET /resident/buildings: approved buildings for the apartment picker.
@@ -40,12 +41,15 @@ async function listBuildings(req, res) {
   const { rows } = await pool.query(
     `SELECT id, name, location FROM building WHERE status = 'approved' ORDER BY name`
   );
-  res.json({ buildings: rows.map((b) => ({ id: b.id, name: b.name, location: b.location })) });
+  sendList(res, {
+    message: 'Buildings fetched successfully',
+    data: rows.map((b) => ({ id: b.id, name: b.name, location: b.location })),
+  });
 }
 
 // POST /resident/locations: saves an address to the resident's profile.
 // A new building is created as 'pending' so the team can review it.
-async function createLocation(req, res) {
+async function createLocation(req, res,next) {
   const input = validate(locationSchema, req.body);
   const user = await requireResident(req);
   const { row, alreadySaved } = await withTransaction(async (db) => {
@@ -82,7 +86,7 @@ async function createLocation(req, res) {
         "SELECT 1 FROM building WHERE id = $1 AND status = 'approved'",
         [buildingId]
       );
-      if (rowCount === 0) throw new AppError(404, 'Building not found');
+      if (rowCount === 0) throw new AppError(404, 'Building not found')
     } else if (input.newBuilding) {
       const { name, management } = input.newBuilding;
 
@@ -101,7 +105,7 @@ async function createLocation(req, res) {
             ? 'This building already exists. Please select it from the list.'
             : 'This building is already submitted and waiting for approval.',
           { building: { id: existing.id, name: existing.name, status: existing.status } }
-        );
+        )
       }
 
       const created = await db.query(
@@ -136,18 +140,17 @@ async function createLocation(req, res) {
   });
 
   if (alreadySaved) {
-    return res.status(200).json({
-      location: toLocation(row),
-      alreadySaved: true,
+    return sendSuccess(res, {
       message: 'You already have this address saved.',
+      data: { ...toLocation(row), alreadySaved: true },
     });
   }
 
-  res.status(201).json({
-    location: toLocation(row),
-    ...(row.building_status === 'pending' && {
-      message: 'Building submitted for review. You can book once it is approved.',
-    }),
+  sendCreated(res, {
+    message: row.building_status === 'pending'
+      ? 'Building submitted for review. You can book once it is approved.'
+      : 'Location saved successfully',
+    data: toLocation(row),
   });
 }
 
@@ -186,14 +189,14 @@ async function updateLocation(req, res) {
     await db.query('SELECT pg_advisory_xact_lock($1, $2)', [LOCATION_LOCK, user.id]);
 
     const current = await findLocation(db, id, user.id);
-    if (!current) throw new AppError(404, 'Location not found');
+    if (!current) throw new AppError(404, 'Location not found')
 
     // type and building may be sent back unchanged, but not edited.
     if (input.type !== undefined && input.type !== current.type) {
-      throw new AppError(400, 'type cannot be changed');
+       throw new AppError(400, 'type cannot be changed')
     }
     if (input.buildingId !== undefined && (input.buildingId ?? null) !== current.building_id) {
-      throw new AppError(400, 'building cannot be changed');
+      throw new AppError(400, 'building cannot be changed')
     }
 
     // Only check for a duplicate when the address text actually changes.
@@ -201,7 +204,7 @@ async function updateLocation(req, res) {
       input.address !== undefined &&
       input.address.trim().toLowerCase() !== (current.address ?? '').trim().toLowerCase();
     if (addressChanged && await addressTaken(db, user.id, current.building_id, input.address, id)) {
-      throw new AppError(409, 'You already have this address saved.');
+      throw new AppError(409, 'You already have this address saved.')
     }
 
     await db.query(
@@ -218,12 +221,12 @@ async function updateLocation(req, res) {
     return findLocation(db, id, user.id);
   });
 
-  res.json({ location: toLocation(row) });
+  sendSuccess(res, { message: 'Location updated successfully', data: toLocation(row) });
 }
 
 // DELETE /resident/locations/:id: removes one of the resident's saved addresses.
 // Sessions keep their own copy of the address; their location_id is set to NULL on delete.
-async function deleteLocation(req, res) {
+async function deleteLocation(req, res,next) {
   const { id } = validate(locationIdSchema, req.params);
   const user = await requireResident(req);
 
@@ -235,15 +238,13 @@ async function deleteLocation(req, res) {
     if (rowCount === 0) throw new AppError(404, 'Location not found');
   } catch (err) {
     if (err.code === '23503') {
-      throw new AppError(409, 'This address was used for a booking and cannot be deleted.');
+      throw new AppError(409, 'This address was used for a booking and cannot be deleted.')
     }
     console.log("error",err)
     throw err;
   }
 
-res.status(200).json({
-  message: "Location Deleted successfully",
-});
+  sendSuccess(res, { message: 'Location Deleted successfully' });
 }
 
 module.exports = { listLocations, listBuildings, createLocation, updateLocation, deleteLocation };

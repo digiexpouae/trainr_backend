@@ -5,6 +5,7 @@ const validate = require('../utils/validate');
 
 
 const AppError = require('../utils/AppError');
+const { sendCreated } = require('../utils/response');
 const auth = require('../services/auth');
 const { BLOCKS_SLOT_SQL } = require('../services/slotHold');
 
@@ -152,14 +153,15 @@ async function createBooking(req, res) {
     return rows[0];
   });
 
-  res.status(201).json({
-    session: {
+  sendCreated(res, {
+    message: 'Session booked successfully',
+    data: {
       id: session.id,
       status: session.status,
       sessionDate: session.session_date,
       startTime: session.start_time,
       endTime: session.end_time,
-      address:session.address,
+      address: session.address,
       price: Number(session.price),
       expiresAt: session.expires_at,
     },

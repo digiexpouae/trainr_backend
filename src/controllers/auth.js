@@ -1,5 +1,6 @@
 const validate = require('../utils/validate');
 const AppError = require('../utils/AppError');
+const { sendSuccess, sendCreated } = require('../utils/response');
 const { registerUserSchema } = require('../validators/auth');
 const auth = require('../services/auth');
 
@@ -19,19 +20,19 @@ async function registerUser(req, res) {
   const profile = validate(registerUserSchema, req.body);
   const decoded = await auth.verifyPhoneToken(getBearerToken(req));
   const user = await auth.registerResident(decoded, profile);
-  res.status(201).json({ user });
+  sendCreated(res, { message: 'Registered successfully', data: user });
 }
 
 async function loginUser(req, res) {
   const decoded = await auth.verifyPhoneToken(getBearerToken(req));
   const user = await auth.loginResident(decoded);
-  res.json({ user });
+  sendSuccess(res, { message: 'Logged in successfully', data: user });
 }
 
 async function me(req, res) {
   const row = await auth.findByFirebaseUid(req.user.uid);
   if (!row) throw new AppError(404, 'User not registered');
-  res.json({ user: auth.toPublicUser(row) });
+  sendSuccess(res, { message: 'Profile fetched successfully', data: auth.toPublicUser(row) });
 }
 
 async function logout(req, res) {
@@ -39,7 +40,7 @@ async function logout(req, res) {
   const isDevToken =
     process.env.NODE_ENV === 'development' && getBearerToken(req).startsWith('dev-');
   if (!isDevToken) await auth.logout(req.user.uid);
-  res.json({ message: 'Logged out' });
+  sendSuccess(res, { message: 'Logged out' });
 }
 
 module.exports = { registerUser, loginUser, me, logout };

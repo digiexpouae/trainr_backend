@@ -2,6 +2,9 @@ const { z } = require('zod');
 const { pool, withTransaction } = require('../config/db');
 const validate = require('../utils/validate');
 const { requireResident } = require('../services/auth');
+const { app } = require('firebase-admin');
+const AppError = require('../utils/AppError');
+const { sendSuccess, sendList } = require('../utils/response');
 
 
 const searchSchema = z.object({
@@ -31,7 +34,7 @@ async function getCoverageAreaSlots(req, res) {
   );
 
   if (area.rowCount === 0) {
-    return res.status(404).json({ error: 'Coverage area not found' });
+    throw new AppError(404,'Coverage area not found') 
   }
 
   const { rows } = await pool.query(
@@ -43,19 +46,22 @@ async function getCoverageAreaSlots(req, res) {
     [coverageAreaId]
   );
 
-  res.json({
-    coverageArea: {
-      id: area.rows[0].id,
-      areaName: area.rows[0].area_name,
-      trainerId: area.rows[0].trainer_id,
+  sendSuccess(res, {
+    message: 'Slots fetched successfully',
+    data: {
+      coverageArea: {
+        id: area.rows[0].id,
+        areaName: area.rows[0].area_name,
+        trainerId: area.rows[0].trainer_id,
+      },
+      slots: rows.map((s) => ({
+        id: s.id,
+        dayOfWeek: s.day_of_week,
+        startTime: s.start_time,
+        endTime: s.end_time,
+        price: Number(s.price),
+      })),
     },
-    slots: rows.map((s) => ({
-      id: s.id,
-      dayOfWeek: s.day_of_week,
-      startTime: s.start_time,
-      endTime: s.end_time,
-      price: Number(s.price),
-    })),
   });
 }
 
@@ -109,7 +115,7 @@ async function searchTrainer(req, res) {
     });
   }
 
-  res.json({ trainers });
+  sendList(res, { message: 'Trainers fetched successfully', data: trainers });
 }
 // Returns the location row for a booking: either the resident's saved one (locationId)
 // or a newly saved one (location). Coverage is checked before anything is inserted.
