@@ -8,7 +8,7 @@ function validate(schema, data) {
       field: i.path.join('.'),
       message: i.message,
     }));
-    throw new AppError(400, 'Invalid input', details);
+    throw new AppError(400, details[0].message, details);
   }
   return result.data;
 }

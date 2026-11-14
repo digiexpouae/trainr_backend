@@ -11,10 +11,11 @@ const { BLOCKS_SLOT_SQL } = require('../services/slotHold');
 
 // The address is saved first (POST /resident/locations); a booking only references it.
 const bookingSchema = z.object({
-  slotId: z.coerce.number().int().positive(),
-  locationId: z.coerce.number().int().positive(),
-  sessionDate: z.iso.date(),
-  goals: z.string().trim().min(1).max(200),
+  slotId: z.coerce.number({ error: 'slotId is required' }).int().positive({ error: 'slotId is required' }),
+
+  locationId: z.coerce.number({ error: 'locationId is required' }).int().positive({ error: 'locationId is required' }),
+  sessionDate: z.iso.date({ error: 'sessionDate is required' }),
+  goals: z.string({ error: 'goals is required' }).trim().min(1,'goals is required').max(200),
   flatNo: z.string().trim().max(30).optional(),
   howToReach: z.string().trim().max(500).optional(),
 });

@@ -46,6 +46,7 @@ async function getCoverageAreaSlots(req, res) {
     [coverageAreaId]
   );
 
+
   sendSuccess(res, {
     message: 'Slots fetched successfully',
     data: {

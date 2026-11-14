@@ -200,6 +200,8 @@ async function handleStripeEvent(event) {
     if (event.type === 'payment_intent.succeeded') await onPaymentSucceeded(db, intent);
     else if (event.type === 'payment_intent.payment_failed') await onPaymentFailed(db, intent);
     else if (event.type === 'payment_intent.canceled') await onPaymentCanceled(db, intent);
+    
+
   });
 }
 

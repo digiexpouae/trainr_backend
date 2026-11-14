@@ -237,10 +237,9 @@ async function deleteLocation(req, res,next) {
     );
     if (rowCount === 0) throw new AppError(404, 'Location not found');
   } catch (err) {
-    if (err.code === '23503') {
-      throw new AppError(409, 'This address was used for a booking and cannot be deleted.')
-    }
-    console.log("error",err)
+    // if (err.code === '23503') {
+    //   throw new AppError(409, 'This address was used for a booking and cannot be deleted.')
+    // }
     throw err;
   }
 
